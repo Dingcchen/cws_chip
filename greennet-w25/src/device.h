@@ -69,7 +69,14 @@ struct dev_hvac {
 	
 	/*restart device after any event*/
 	int restart_dev;
-	int demand_event_stage;
+	
+	/*When the demand date and time occurs */
+	int demand_event_stage_read;
+	int demand_control_stage;
+	int demand_date_event;
+	int demand_time_event;
+	int demand_resp_code_dup;
+	int demand_event_stage_time;
 };
 
 struct device {

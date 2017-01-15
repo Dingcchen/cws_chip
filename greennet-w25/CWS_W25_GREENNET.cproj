@@ -326,7 +326,7 @@
     <com_atmel_avrdbg_tool_atmelice>
       <ToolOptions>
         <InterfaceProperties>
-          <SwdClock>0</SwdClock>
+          <SwdClock>2000000</SwdClock>
         </InterfaceProperties>
         <InterfaceName>SWD</InterfaceName>
       </ToolOptions>
@@ -809,9 +809,6 @@
     <Folder Include="src\script\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="readme.txt">
-      <SubType>compile</SubType>
-    </None>
     <None Include="src\ASF\sam0\drivers\tcc\quick_start_faultn\qs_tcc_faultn.h">
       <SubType>compile</SubType>
     </None>
@@ -836,6 +833,9 @@
     <None Include="src\ASF\sam0\drivers\adc\adc.h">
       <SubType>compile</SubType>
     </None>
+    <Compile Include="src\adc_cws_temp.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\ASF\sam0\drivers\adc\adc_sam_d_r\adc.c">
       <SubType>compile</SubType>
     </Compile>
@@ -858,6 +858,9 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\ax_task.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\adc_cws_temp.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\ctl_algorithm.c">
@@ -1625,6 +1628,9 @@
     <Compile Include="src\main21.c">
       <SubType>compile</SubType>
     </Compile>
+    <None Include="src\readme.txt">
+      <SubType>compile</SubType>
+    </None>
     <None Include="src\script\tcp_server.py">
       <SubType>compile</SubType>
     </None>

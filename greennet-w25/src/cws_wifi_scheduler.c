@@ -11,6 +11,7 @@
 #include "gnet.h"
 #include "gnet_hvac.h"
 #include "ax_task.h"
+#include "adc_cws_temp.h"
 
 
 
@@ -656,13 +657,6 @@ int hvac_scheduler(void)
 {
 	struct device *pd = get_device_ctx();
 	
-	//static int demand_eventstage = 0;
-	static unsigned long demand_event_tick = 0;
-	unsigned long tick_demand = get_time_ms();
-	
-	
-	
-	
 	/* Initialize Pin for CWS */
 	ctl_port_init();
 	Clean_vars();
@@ -680,71 +674,47 @@ int hvac_scheduler(void)
 		 */
 		network_process(pd);
 		
+		/* temperature Sensor */
+		
+		adc_temp_sensor();
+		
 		/* read gpio status */
 		hvac_get_control_status(&pd->hvac);
 
 		/* more flexible than switch case
 		 */
-		if (pd->hvac.demand_resp_code == 0)
-			
+		if (pd->hvac.demand_resp_code == 0 && pd->hvac.demand_control_stage == 0) // Regular conditioner (normal routine)
 			control_conditioner();
+		 
+		//When event occurs 
+		 if (pd->hvac.demand_event_stage_read)
+			{
+	     //Check the demand resp date 
+		 if (pd->hvac.demand_resp_date == pd->hvac.current_date)
+		   {
+			 pd->hvac.demand_date_event = 1;
 			
-	  
-	   if (pd->hvac.current_date == pd->hvac.demand_resp_date) //check the date for demand_resp
-	   {
-		   
-		   
-		if (pd->hvac.demand_resp_code==1)
-		{
-			pd->hvac.demand_event_stage = 1;
-			demand_event_tick = tick_demand;
-		}
+            check_time_for_event();
+			  
+			if (pd->hvac.demand_date_event == 1 && pd->hvac.demand_time_event ==1 && pd->hvac.demand_resp_code_dup == 1)
+              {
+			control_conditioner1();
+              }
+	        
+			if (pd->hvac.demand_date_event == 1 && pd->hvac.demand_time_event ==1 && pd->hvac.demand_resp_code_dup == 2)
+	          {
+		     control_conditioner2();
+	          }
 		
-		if (pd->hvac.demand_event_stage == 1 && (pd->hvac.demand_resp_code - pd->hvac.current_time) <= (tick_demand - demand_event_tick))
-		{
-			   control_conditioner1();
-		
-		}
-		else
-		pd->hvac.demand_resp_code = 0;
-
-	   
-		
-		if (pd->hvac.demand_resp_code==2)
-		{
-			pd->hvac.demand_event_stage = 2;
-			demand_event_tick = tick_demand;
-		}
-		
-		if (pd->hvac.demand_event_stage == 2 && (pd->hvac.demand_resp_code - pd->hvac.current_time) <= (tick_demand - demand_event_tick))
-		{
-			control_conditioner2();
-			
-		}
-		else
-		pd->hvac.demand_resp_code = 0;
-		
+		    if (pd->hvac.demand_date_event == 1 && pd->hvac.demand_time_event ==1 && pd->hvac.demand_resp_code_dup == 3)
+		     {
+			 control_conditioner3();
+		     }
 	
-		
-		
-		if (pd->hvac.demand_resp_code==3)
-		{
-			pd->hvac.demand_event_stage = 3;
-			demand_event_tick = tick_demand;
 		}
+}
 		
-		if (pd->hvac.demand_event_stage == 3 && (pd->hvac.demand_resp_code - pd->hvac.current_time) <= (tick_demand - demand_event_tick))
-		{
-			control_conditioner3();
-			
-		}
-		else
-		pd->hvac.demand_resp_code = 0;
-	  
-	  }
-	  else
-	  pd->hvac.demand_resp_code = 0;
-		
+
 		/* handle timer task - see usage in gnet_hvac.c
 		 */
 		if (check_wifi_link_status(pd) == 0) {
@@ -754,3 +724,4 @@ int hvac_scheduler(void)
 	
 	}
 }
+

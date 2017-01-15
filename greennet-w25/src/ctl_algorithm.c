@@ -197,8 +197,8 @@ void control_conditioner(void) {
 	goto _ALGO_DELAY;
 	else if (algo_delay1)
 	goto _ALGO_DELAY1;
-	else if (algo_delay2)
-	goto _ALGO_DELAY2;
+	//else if (algo_delay2)
+	//goto _ALGO_DELAY2;
 	else if (algo_delay3)
 	goto _ALGO_DELAY3;
 	else if (algo_delay4)
@@ -373,39 +373,39 @@ _ALGO_DELAY1:
 			}
 			
 			/** Turn compressor OFF for 3 minutes every 30 Minutes ***/
-			if (main_counter_for_comp_off > 75 && !is_comp_off) {
-				
-				set_comp(); /*GP4 = 0;     // Compressor OFF */
-		
-
-#if 1 // austion version
-			   algo_delay2 = gAcc_MS;
+		//if (main_counter_for_comp_off > 75 && !is_comp_off) {
+				//
+				//reset_comp(); /*GP4 = 0;     // Compressor OFF */  //testing
+		//
+//
+//#if 1 // austion version
+			   //algo_delay2 = gAcc_MS;
+			//
+//_ALGO_DELAY2:
+				///* 3-minutes delay */
+				//
+				//if ((gAcc_MS - algo_delay2) > (3 * 60 * 1000)) {
+					//printf("algo 2 lead time = %ld\r\n", gAcc_MS - algo_delay2);
+					//algo_delay2 = 0;
+				//} else
+				//return;
+				//
+//#endif
 			
-_ALGO_DELAY2:
-				/* 3-minutes delay */
-				
-				if ((gAcc_MS - algo_delay2) > (3 * 60 * 1000)) {
-					printf("algo 2 lead time = %ld\r\n", gAcc_MS - algo_delay2);
-					algo_delay2 = 0;
-				} else
-				return;
-				
-#endif
-			
-			
-			if (!is_comp_off) {
-					 
-					reset_fan(); /* GP2=1; // Fan ON */
-					delay_ms(500);
-					reset_comp(); /*    GP4=1; // Compressor ON */
-					
-					} else {
-					set_comp(); /*    GP4=0; // Compressor OFF */
-					delay_ms(500);
-					Fan_Man();
-				}
-				control_stage_comp = 4;
-			}
+			//
+			//if (!is_comp_off) {
+					 //
+					//reset_fan(); /* GP2=1; // Fan ON */
+					//delay_ms(500);
+					//reset_comp(); /*    GP4=1; // Compressor ON */
+					//
+					//} else {
+					//set_comp(); /*    GP4=0; // Compressor OFF */
+					//delay_ms(500);
+					//Fan_Man();
+				//}
+				//control_stage_comp = 4;
+			//}
 			
 			
 			/**   Extended time   ***/
@@ -415,7 +415,7 @@ _ALGO_DELAY2:
 				reset_fan(); /* GP2=1; // Fan ON */
 				keep_time_extented = t1_comp_ontime + t2_comp_offtime + tick_comp_on_and_off; //xx=t1*0.17+ t2*0.07 + c*.0.17
 
-				#if 1 // austion version
+#if 1 // austion version
 				keep_time_extented_bk = keep_time_extented;
 				algo_delay3 = gAcc_MS;
 				_ALGO_DELAY3:
@@ -426,7 +426,7 @@ _ALGO_DELAY2:
 				} else
 				return;
 				
-				#endif
+#endif
 				
 				t1_comp_ontime = tick_comp_on_and_off;
 				control_stage_comp = 1;
@@ -456,7 +456,7 @@ _ALGO_DELAY2:
 		keep_time_extented=0;
 		t2_comp_offtime=0;
 
-		#if 1 // austion version
+#if 1 // austion version
 		algo_delay4 = gAcc_MS;
 		_ALGO_DELAY4:
 
@@ -466,7 +466,7 @@ _ALGO_DELAY2:
 		} else
 		return;
 
-		#endif
+#endif
 		
 		aux_counter_heat++; //Increment Auxilar heater counter
 		
@@ -515,26 +515,45 @@ _ALGO_DELAY2:
 
 
 int control_conditioner1(void)
-{
+	{
 	
 	struct device *pd = get_device_ctx();
 	unsigned long tick = get_time_ms();
 	static int event_stage = 0;
 	static unsigned long event_time_1;
+	//static unsigned long demand_event_time_1;
+	//static unsigned long demand_current_time_1; 
+	//unsigned long result;
+	
 	unsigned int ran = tick % 30;  //random number for read frequency
 	
 	
-	if (!is_heater_off)
-	{
-		pd->hvac.demand_resp_code = 0;
-	
-	}
-	else
-	{
+   if (!is_heater_off)
+		{
+			pd->hvac.demand_resp_code = 0;
+			
+		}
+	 
+	 else
+	 {
+		 //if(pd->hvac.demand_event_stage == 0)
+		 //{
+	     	//pd->hvac.demand_event_stage = 1;
+		    //demand_current_time_1 = pd->hvac.current_time;
+		    //demand_event_time_1 = tick;
+		 //}
+    //
+	//result = pd->hvac.demand_resp_time - demand_current_time_1;
+	//
+	//if (pd->hvac.demand_event_stage == 1 && (result < tick  - demand_event_time_1))
+	////if((pd->hvac.current_time - 30000) <= pd->hvac.demand_resp_time && pd->hvac.demand_resp_time <= (pd->hvac.current_time + 30000))
+	//
+	//{
 		
 	/* event start */
 	if(event_stage == 0)
 	 {
+		pd->hvac.demand_control_stage = 1;
 		event_stage = 1;
 		event_time_1 = tick;
 		
@@ -542,26 +561,36 @@ int control_conditioner1(void)
 		set_comp();
 		
 	  }
-
+	  
+//}
 	/* check 6-min elapsed */
 	
 	if (event_stage == 1 && (tick - event_time_1 > 6 * 60 * 1000))
 	
 		{
 			
-		    pd->hvac.demand_resp_code = 0;
+		   
 			event_stage = 0;
-			pd->hvac.demand_event_stage = 0;
+			
+			
+			pd->hvac.demand_resp_code = 0;
+			pd->hvac.demand_event_stage_read = 0;
+			pd->hvac.demand_resp_code_dup = 0;
+			pd->hvac.demand_control_stage =0;
+			pd->hvac.demand_date_event = 0;
+			pd->hvac.demand_time_event = 0;
 			
 			//Comp_man();
+			
+			
 			delay_ms(pd->hvac.delay + ran);
 			Clean_vars_after_greennet();
 			control_stage_comp = 4;      //Avoid going into the loop
 			
 		}
 	
-	}
 
+}
 	return 0;
 }
 
@@ -570,46 +599,76 @@ int control_conditioner1(void)
 
 int control_conditioner2(void)
 {
+	
 	struct device *pd = get_device_ctx();
 	unsigned long tick = get_time_ms();
 	static int event_stage = 0;
 	static unsigned long event_time_2;
-	unsigned int ran = tick % 30; //random number for read frequency
+	//static unsigned long demand_event_time_2;
+	//static unsigned long demand_current_time_2;
+	//unsigned long result;
+	
+	unsigned int ran = tick % 30;  //random number for read frequency
 	
 	
 	if (!is_heater_off)
 	{
-		pd->hvac.demand_resp_code = 0;    //Delay which is set by the greennet
-
+		pd->hvac.demand_resp_code = 0;
+		
 	}
-	
 	else
 	{
-	   /* event start */
-	 if( event_stage == 0)  //check the time for demand_resp
-		{
+		//if (pd->hvac.demand_event_stage == 0)
+		//{
+			//pd->hvac.demand_event_stage = 2;
+			//demand_current_time_2 = pd->hvac.current_time;
+			//demand_event_time_2 = tick;
+		//}
+		//result = pd->hvac.demand_resp_time - demand_current_time_2;
 		
-			event_stage = 2;
-			event_time_2 = tick;
+		//if((pd->hvac.current_time - 30000) <= pd->hvac.demand_resp_time && pd->hvac.demand_resp_time <= (pd->hvac.current_time + 30000))
+		//{
+			//
+			/* event start */
+			if(event_stage == 0)
+			{
+				pd->hvac.demand_control_stage = 2;
+				event_stage = 2;
+				event_time_2 = tick;
+				
+				delay_ms(pd->hvac.delay + ran);
+				set_comp();
+				
+			}
+	//	}
+
+			/* check 12-min elapsed */
+			
+			if (event_stage == 2 && (tick - event_time_2 > 12 * 60 * 1000))
+			
+			{
+				
+				event_stage = 0;
+			
+			
+			pd->hvac.demand_resp_code = 0;
+			pd->hvac.demand_event_stage_read = 0;
+			pd->hvac.demand_resp_code_dup = 0;
+			pd->hvac.demand_control_stage =0;
+			pd->hvac.demand_date_event = 0;
+			pd->hvac.demand_time_event = 0;
+			
+			//Comp_man();
+			
 			
 			delay_ms(pd->hvac.delay + ran);
-			set_comp();
-		}
-
-	
-	/* check 12-min elapsed */
-	if (event_stage == 2 && (tick - event_time_2 > 12 * 60 * 1000))
-	{
-		 pd->hvac.demand_resp_code = 0;
-		 event_stage = 0;
-		 pd->hvac.demand_event_stage = 0;
-		 //Comp_man();
-		 delay_ms(pd->hvac.delay + ran);
-		 Clean_vars_after_greennet();
-		 control_stage_comp = 4;
+			Clean_vars_after_greennet();
+			control_stage_comp = 4;      //Avoid going into the loop
+				
+			}
+			
+		
 	}
-	}
-	
 	return 0;
 }
 
@@ -620,47 +679,93 @@ int control_conditioner3()
   unsigned long tick = get_time_ms();
   static int event_stage = 0;
   static unsigned long event_time_3;
-  unsigned int ran = tick % 30; //random number for read frequency
+  //static unsigned long demand_event_time_3;
+  //static unsigned long demand_current_time_3;
+  //unsigned long result;
+  
+  unsigned int ran = tick % 30;  //random number for read frequency
   
   
   if (!is_heater_off)
   {
 	  pd->hvac.demand_resp_code = 0;
-	 
+	  
   }
-  
   else
-  
   {
-	  /* event start */
-	if( event_stage == 0)  //check the time for demand_resp
-		{
-		
-			event_stage = 3;
-			event_time_3 = tick;
+	  //if (pd->hvac.demand_event_stage == 0)
+	  //{
+		//  pd->hvac.demand_event_stage = 3;
+		  //demand_current_time_3 = pd->hvac.current_time;
+		  //demand_event_time_3 = tick;
+	  //}
+	//  result = pd->hvac.demand_resp_time - demand_current_time_3;
+	  
+	// if((pd->hvac.current_time - 30000) <= pd->hvac.demand_resp_time && pd->hvac.demand_resp_time <= (pd->hvac.current_time + 30000))
+	//  {
+		  
+		  /* event start */
+		  if(event_stage == 0)
+		  {
+			  pd->hvac.demand_control_stage = 3;
+			  event_stage = 3;
+			  event_time_3 = tick;
+			  
+			  delay_ms(pd->hvac.delay + ran);
+			  set_comp();
+			  delay_ms(500);
+			  set_fan();
+			  
+		  }
+	 // }
+
+		  /* check 12-min elapsed */
+		  
+		  if (event_stage == 3 && (tick - event_time_3 > 12 * 60 * 1000))
+		  
+		  {
+			 event_stage = 0;
+			
+			
+			pd->hvac.demand_resp_code = 0;
+			pd->hvac.demand_event_stage_read = 0;
+			pd->hvac.demand_resp_code_dup = 0;
+			pd->hvac.demand_control_stage =0;
+			pd->hvac.demand_date_event = 0;
+			pd->hvac.demand_time_event = 0;
+			
+			//Comp_man();
+			
 			
 			delay_ms(pd->hvac.delay + ran);
-			set_comp();
-			delay_ms(500);
-			set_fan();
-		}
-	
-	
+			Clean_vars_after_greennet();
+			control_stage_comp = 4;      //Avoid going into the loop
+			  
+		  }
+		  
+	  
+  }
+  return 0;
+  }
 
-  
-  /* check 12-min elapsed FAN and Comp */
-  if (event_stage == 3 && (tick - event_time_3 > 12 * 60 * 1000))
-  {
-	  pd->hvac.demand_resp_code = 0;
-	  event_stage = 0;
-	  pd->hvac.demand_event_stage = 0;
-	  //Comp_man();
-	  delay_ms(pd->hvac.delay + ran);
-	  Clean_vars_after_greennet();
-	  control_stage_comp = 4;
-  }
-  
-  }
-  
- return 0;
+int check_time_for_event()
+{
+	struct device *pd = get_device_ctx();
+	static unsigned long event_time_demand;
+    unsigned long tick = get_time_ms();
+	static unsigned long result;
+	
+	if (pd->hvac.demand_event_stage_time == 0 && pd->hvac.demand_time_event == 0)
+	{
+		pd->hvac.demand_event_stage_time = 1;
+		event_time_demand = tick;
+		result = pd->hvac.demand_resp_time - pd->hvac.current_time;
+	}
+	
+	if (pd->hvac.demand_event_stage_time == 1 && (tick - event_time_demand > result))
+	{
+		pd->hvac.demand_time_event = 1;
+	}
+	
+	return 0;
 }
