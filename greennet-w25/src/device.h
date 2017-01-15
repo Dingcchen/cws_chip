@@ -12,10 +12,8 @@
 #define MAX_RESP_BUF_SIZE		1024
 #define MAX_RECV_BUF_SIZE		256
 
-
 struct device * get_device_ctx(void);
-
-
+struct device * device_init(void);
 
 struct network_status {
 	char initialized;
@@ -26,7 +24,8 @@ struct network_status {
 	char write_sock_connected;
 	char packet_tx_status;
 	char packet_rx_done;
-
+	int  wifi_link_state;
+	int  ap_provision_state;
 	//unsigned long server_ipv4;
 };
 
@@ -75,11 +74,11 @@ struct dev_hvac {
 struct device {
 	/* device id */
 	char mac[13];			/* mac address 12-byte + '\0' */
-	char serial[12];		/* serial adrees 11-byte + '\0' */
+	char serial[12];		/* serial address 11-byte + '\0' */
 	
 	/* wifi router candidates */
 	int aplist_index;
-	struct cws_ap *cws_ap_list;
+	// struct cws_ap *cws_ap_list;
 	
 	/* wifi module */
 	struct network_status wifi;

@@ -7,8 +7,16 @@
 
 
 #include "device.h"
+#include "string.h"
 
 struct device gDevice;
+
+struct device * device_init(void)
+{
+	memset(&gDevice, 0, sizeof(struct device));
+	gDevice.wifi.initialized = 1;
+	// gDevice.wifi.wifi_link_state = SYS_AP_CONNECT_BEGIN;
+}
 
 struct device * get_device_ctx()
 {

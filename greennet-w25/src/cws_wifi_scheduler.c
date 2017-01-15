@@ -11,6 +11,7 @@
 #include "gnet.h"
 #include "gnet_hvac.h"
 #include "ax_task.h"
+#include "ap_provision.h"
 
 
 
@@ -37,8 +38,7 @@ struct cws_ap {
 	uint8	authtype;		/*!< Authentication type */
 };
 
-
-static struct cws_ap vaild_ap_list[] = {
+static struct cws_ap valid_ap_list[] = {
 		{"Media Zone","^^Mountain411desktop^^", M2M_WIFI_SEC_WPA_PSK}, //John
 		{"Central","mvndimag", M2M_WIFI_SEC_WPA_PSK},  //Eric Home
 		{"enalasysNet","apple1212", M2M_WIFI_SEC_WPA_PSK},  //Office(calexico)
@@ -46,7 +46,7 @@ static struct cws_ap vaild_ap_list[] = {
 		{"CWS","ky34A3Ukhq", M2M_WIFI_SEC_WPA_PSK}
 };
 
-#define VAILD_AP_LIST_CNT (sizeof(vaild_ap_list)/sizeof(struct cws_ap))
+#define VAILD_AP_LIST_CNT (sizeof(valid_ap_list)/sizeof(struct cws_ap))
 
 /************************************************************************/
 /*                                                                      */
@@ -111,6 +111,18 @@ static void wifi_callback(uint8_t u8MsgType, void *pvMsg)
 		}
 		break;
 		
+		case M2M_WIFI_RESP_DEFAULT_CONNECT:
+		{
+			tstrM2MDefaultConnResp *pResp = (tstrM2MDefaultConnResp *)pvMsg;
+			if(pResp->s8ErrorCode == M2M_DEFAULT_CONN_EMPTY_LIST) {
+				printf("wifi_cb: M2M_WIFI_RESP_DEFAULT_CONNECT: M2M_DEFAULT_CONN_EMPTY_LIST\r\n");
+			} else if(pResp->s8ErrorCode == M2M_DEFAULT_CONN_SCAN_MISMATCH) {
+				printf("wifi_cb: M2M_WIFI_RESP_DEFAULT_CONNECT: M2M_DEFAULT_CONN_SCAN_MISMATCH\r\n");
+			}
+			struct device *pd = get_device_ctx();
+			
+			break;
+		}
 		case M2M_WIFI_REQ_DHCP_CONF:
 		{
 			uint8_t *pu8IPAddress = (uint8_t *)pvMsg;
@@ -118,8 +130,18 @@ static void wifi_callback(uint8_t u8MsgType, void *pvMsg)
 				pu8IPAddress[0], pu8IPAddress[1], pu8IPAddress[2], pu8IPAddress[3]);
 
 			struct device *pd = get_device_ctx();
-			pd->wifi.connected = true;
-
+			switch(pd->wifi.wifi_link_state)
+			{
+				case SYS_AP_CONNECT_DEFAULT_WAIT:
+				case SYS_SERVER_GET_IP_DOING:
+					// Acquired IP address from AP.
+					// In AP mode, this event give IP address to client.
+					pd->wifi.connected = true;
+					break;
+				case SYS_AP_PROVISION:
+					pd->wifi.connected = (pd->wifi.ap_provision_state == AP_PROVISION_STATE_DONE)?1:0;
+					break;
+			}
 		}
 		break;
 		
@@ -334,82 +356,121 @@ static int hvac_wifi_init(struct device *dev_handler)
 	
 	if (ret != M2M_SUCCESS)
 		return -1;
+
+	device_init();
 	
-	/* Initialize socket module */
-	socketInit();
-	registerSocketCallback(socket_callback, resolve_callback);
-
-	/* FIXME: please refactor below as device init by itself */
-	struct device * pd = get_device_ctx();
-	memset(pd, 0, sizeof(struct device));
-
-	pd->wifi.initialized = 1;
-
-	pd->cws_ap_list = vaild_ap_list;
-
 	return 0;
 }
 
 static int havc_wifi_link_handler(struct device *dev)
 {
-	static int current_state = SYS_AP_CONNECT_BEGIN;
+	int current_state = dev->wifi.wifi_link_state;
 	int next_state = SYS_AP_CONNECT_BEGIN;
 	static unsigned long wait_ms = 0, previous_ms = 0;
 	sint8 ret;
 
 	switch (current_state) {
 		case SYS_AP_CONNECT_BEGIN:
+			if (dev->wifi.initialized != 1 && hvac_wifi_init(dev) != M2M_SUCCESS) {
+				return -1;
+			} else {
+				next_state = SYS_AP_CONNECT_DEFAULT;
+			}
+		case SYS_AP_CONNECT_DEFAULT:
+			if(m2m_wifi_default_connect() == M2M_SUCCESS) {
+				previous_ms = get_time_ms();
+				wait_ms = DEMAND_TIME_FOR_AP_CONNECT;
+				next_state = SYS_AP_CONNECT_DEFAULT_WAIT;
+			} else {
+				next_state = SYS_AP_CONNECT_LIST;
+			}
+			break;
+			
+		case SYS_AP_CONNECT_DEFAULT_WAIT:
+			if ((get_time_ms() - previous_ms) < wait_ms) {
+				if (dev->wifi.connected == 1) {
+					next_state = SYS_AP_CONNECT_DONE;
+					printf("AP default connection success\r\n");
+				} else {
+					return 0;
+				}
+			} else {
+				next_state = SYS_AP_CONNECT_LIST;
+			}
+			break;
+			
+		case SYS_AP_CONNECT_LIST:
 		{
-			struct cws_ap *ap_list = dev->cws_ap_list;
+			// struct cws_ap *ap_list = dev->cws_ap_list;
 			int index = dev->aplist_index;
 
-			if (dev->wifi.initialized != 1)
-				if (hvac_wifi_init(dev) != M2M_SUCCESS)
-					return -1;
-
-			ret = m2m_wifi_connect((char *)ap_list[index].ssid,
-				sizeof(ap_list[index].ssid),
-				ap_list[index].authtype,
-				(char *)ap_list[index].password,
+			ret = m2m_wifi_connect((char *)valid_ap_list[index].ssid,
+				sizeof(valid_ap_list[index].ssid),
+				valid_ap_list[index].authtype,
+				(char *)valid_ap_list[index].password,
 				M2M_WIFI_CH_ALL);
 
 			if (ret != M2M_SUCCESS)
 			{
+				// next_state starts from begin.
 				printf("m2m_wifi_connect() fail = %d\r\n", ret);
-				return -1;
+			} else {
+				previous_ms = get_time_ms();
+				wait_ms = DEMAND_TIME_FOR_AP_CONNECT;
+				next_state = SYS_AP_CONNECT_DOING;
 			}
-
-			previous_ms = get_time_ms();
-			wait_ms = DEMAND_TIME_FOR_AP_CONNECT;
-
-			next_state = SYS_AP_CONNECT_DOING;
 			break;
 		}
 		case SYS_AP_CONNECT_DOING:
 			if ((get_time_ms() - previous_ms) < wait_ms) {
 				if (dev->wifi.connected == 1) {
 					next_state = SYS_AP_CONNECT_DONE;
-					printf("AP connection succes\r\n");
+					printf("AP connection success\r\n");
 				} else
 					next_state = SYS_AP_CONNECT_DOING;
 			} else {
 				/* retry to another AP as timeout */
 				dev->aplist_index++;
-				dev->aplist_index %= VAILD_AP_LIST_CNT;
-				printf("AP connection retry = %d\r\n", dev->aplist_index);
-				next_state = SYS_AP_CONNECT_BEGIN;
+				if(dev->aplist_index == VAILD_AP_LIST_CNT) {
+					dev->aplist_index = 0;
+					// None of listed AP is available. try AP Provision.
+					ret = ap_provision_init();
+					if(ret >=0) {
+						next_state = SYS_AP_PROVISION;
+					} else {
+						printf("ap_provision_init() fail = %d\r\n", ret);
+					}
+				} else {
+					printf("AP connection retry = %d\r\n", dev->aplist_index);
+					next_state = SYS_AP_CONNECT_LIST;
+				}
 			}
-
 			break;
 
+		case SYS_AP_PROVISION:
+			ret = ap_provision();
+			dev->wifi.ap_provision_state = ret;
+			if (ret >= 0) {
+				if(dev->wifi.connected == 1) {
+					next_state = SYS_AP_CONNECT_DONE;
+					printf("AP Provision connection success\r\n");
+				} else {
+					// keep waiting
+					next_state = SYS_AP_PROVISION;
+				}
+			} else {
+				// Provisioning fails, next state starts from beginning.
+			}
+			break;
+		
 		case SYS_AP_CONNECT_DONE:
 			printf("debug SYS_AP_CONNECT_DONE \r\n");
-
 			if (dev->wifi.connected == 1) {
+				/* Initialize socket module */
+				socketInit();
+				registerSocketCallback(socket_callback, resolve_callback);
 				next_state = SYS_SERVER_GET_IP_BEGIN;
-			} else
-				next_state = SYS_AP_CONNECT_BEGIN;
-
+			}
 			break;
 
 		case SYS_SERVER_GET_IP_BEGIN:
@@ -420,7 +481,7 @@ static int havc_wifi_link_handler(struct device *dev)
 			gethostbyname((uint8_t *)dev->hvac.url_host);
 			
 			previous_ms = get_time_ms();
-			wait_ms = DEMAND_TIME_FOR_CLIENT_IP;
+			wait_ms = DEMAND_TIME_FOR_CLIENT_IP * 4;
 
 			next_state = SYS_SERVER_GET_IP_DOING;
 			break;
@@ -430,21 +491,19 @@ static int havc_wifi_link_handler(struct device *dev)
 				if (dev->wifi.valid_domain_status == 1) {
 					next_state = SYS_SERVER_GET_IP_DONE;
 					printf("Debug : Got IP\r\n");
-				} else
+				} else {
 					next_state = SYS_SERVER_GET_IP_DOING;
+				}
 			} else { /* timeout */
 				/* retry to get IP from another domain as timeout */
-				printf("Invaild Domain\r\n");
+				printf("Invalid Domain\r\n");
 				next_state = SYS_SERVER_GET_IP_BEGIN;
 			}
-
 			break;
 
 		case SYS_SERVER_GET_IP_DONE:
 			printf("debug SYS_SERVER_GET_IP_DONE \r\n");
-
 			next_state = SYS_AP_CONNECT_IDLE;
-
 			break;
 
 		case SYS_AP_CONNECT_IDLE:
@@ -456,18 +515,20 @@ static int havc_wifi_link_handler(struct device *dev)
 				next_state = SYS_SERVER_GET_IP_BEGIN;
 				break;
 			}
-			
 			/* To Do */
 			next_state = SYS_AP_CONNECT_IDLE;
-
 			break;
 
 		default:
 			printf("%s: Error : Undefined state\r\n", __FUNCTION__);
 			break;
 	}
-
-	current_state = next_state;
+	
+	if(next_state != dev->wifi.wifi_link_state ) {
+		printf("Next_state: %d\r\n", next_state);
+		dev->wifi.wifi_link_state = next_state;
+	}
+	
 	return 0;
 }
 
@@ -619,15 +680,34 @@ static int hvac_cloud_link_handler(struct device *dev)
 			printf("%s: Error : Undefined state\r\n", __FUNCTION__);
 			break;
 	}
+	
+	if(next_state != current_state ) {
+		printf("Next_state: %d\r\n", next_state);
+		current_state = next_state;
+	}
 
-	current_state = next_state;
 	return 0;
 }
 
-
 static int network_process(struct device *dev)
-{
-	m2m_wifi_handle_events(NULL);
+{	m2m_wifi_handle_events(NULL);
+	/*
+	WIFI_LINK_STATE wifi_state = dev->wifi.wifi_link_state;
+
+	
+	switch(wifi_state) 
+	{
+	case WIFI_STATE_DEFAULT_CONNECTION:
+		break;
+	case WIFI_STATE_AP_CONNECTION:
+		havc_wifi_link_handler(dev);
+		break;
+	case WIFI_STATE_AP_PROVISION:
+		break;
+	case WIFI_STATE_CLOUD_LINK:
+		break;
+	}
+	*/
 	havc_wifi_link_handler(dev);
 	if (check_wifi_link_status(dev) == 0) /* is connected */
 		hvac_cloud_link_handler(dev);
@@ -641,14 +721,9 @@ static int network_process(struct device *dev)
 
 static void hvac_get_control_status(struct dev_hvac *p)
 {
-	
-	
 	p->compressor	= !(port_pin_get_input_level(COMPRESSOR_INPUT_PIN));
 	p->fan			= !(port_pin_get_input_level(FAN_INPUT_PIN));
 	p->heater		= !(port_pin_get_input_level(HEATER_INPUT_PIN));
-	
-	
-
 }
 
 

@@ -836,6 +836,12 @@
     <None Include="src\ASF\sam0\drivers\adc\adc.h">
       <SubType>compile</SubType>
     </None>
+    <Compile Include="src\ap_provision.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\ap_provision.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\ASF\sam0\drivers\adc\adc_sam_d_r\adc.c">
       <SubType>compile</SubType>
     </Compile>

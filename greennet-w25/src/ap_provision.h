@@ -38,25 +38,29 @@
  *
  */
 
-#ifndef MAIN_H_INCLUDED
-#define MAIN_H_INCLUDED
+#ifndef AP_PROV_H_INCLUDED
+#define AP_PROV_H_INCLUDED
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "driver/include/m2m_wifi.h"
 
-#define MAIN_WIFI_M2M_PRODUCT_NAME        "NMCTemp"
-#define MAIN_WIFI_M2M_SERVER_IP           0xc0a80164 //0xFFFFFFFF /* 255.255.255.255 */
-#define MAIN_WIFI_M2M_SERVER_IP_STR       "192.168.123.184" /* 255.255.255.255 */
+typedef enum {
+	AP_PROVISION_STATE_FAIL = -1,
+	AP_PROVISION_STATE_DONE,
+	AP_PROVISION_STATE_STARTED
+} tenumApProvState;
 
-// #define MAIN_WIFI_M2M_SERVER_PORT         (21)
-#define MAIN_WIFI_M2M_REPORT_INTERVAL     (1000)
+/** Using IP address. */
+#define IPV4_BYTE(val, index)          ((val >> (index * 8)) & 0xFF)
 
-// #define MAIN_WIFI_M2M_BUFFER_SIZE          1460
+int ap_provision_init(void);
+int ap_provision(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* MAIN_H_INCLUDED */
+#endif /* AP_PROV_H_INCLUDED */
