@@ -67,14 +67,7 @@ int control_conditioner1(void);
 int control_conditioner2(void);
 int control_conditioner3(void);
 void Clean_vars_after_greennet(void);
-static void Comp_man(void);
-
-static int _Get_fan(void);
-static int _is_comp_off(void);
-static int _is_heater_off(void);
-//static void _delay_btw_comp_n_fan(void);
-
-
+int check_time_for_event(void);
 
 #ifdef __cplusplus
 }

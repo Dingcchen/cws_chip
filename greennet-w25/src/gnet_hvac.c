@@ -43,7 +43,7 @@ static int periodic_read(struct timer_tcb *p);
 
 static int periodic_write(struct timer_tcb *p);
 static int periodic_write_demand(struct timer_tcb *p);
-static int periodic_read_current_d_n_t(struct timer_tcb *p);
+//static int periodic_read_current_d_n_t(struct timer_tcb *p);
 
 /************************************************************************/
 /* implementation                                                       */
@@ -327,7 +327,18 @@ static int parse_read_response(int func_mode, char *resp)
 			p->delay,
 			p->reporting_url
 		);
-
+		
+		
+		pd->hvac.demand_resp_code_dup = pd->hvac.demand_resp_code; // storing the demand respond code .
+		
+		pd->hvac.demand_resp_code = 0;  //Resetting the demand code for normal conditioner
+	    
+		pd->hvac.demand_event_stage_read = 1;  //Set the event stage after read to check the date 
+		
+		if (pd->hvac.demand_control_stage == 0)
+		{
+		      p->demand_event_stage_time = 0;       //Event_stage set to 0 for loading the current_time after every read.
+		}
 	/* validate HVAC operation schedule here */
 	
 	/* determine HVAC operation schedule */
@@ -346,8 +357,9 @@ static int parse_read_response(int func_mode, char *resp)
 		task_remove_by_name("write");
 		task_add("read", periodic_read, pd, read_msec, read_msec, 0);
 		
-		task_add("read_d_n_t", periodic_read_current_d_n_t, pd,read_msec_t, read_msec_t, 0);
+	//	task_add("read_d_n_t", periodic_read_current_d_n_t, pd,read_msec_t, read_msec_t, 0);
 		task_add("write", periodic_write, pd, p->delay, writ_msec, expire_ms);
+	//	task_add("read_d_n_t", periodic_read_current_d_n_t, pd,read_msec_t, read_msec_t, 0);
 		
 		
 		/* schedule an requested event */
@@ -371,7 +383,7 @@ static int parse_read_response(int func_mode, char *resp)
 	{
 		/* see readme.txt for operation diagram 
 		*/
-		unsigned long read_msec =  60 * 1000;
+		unsigned long read_msec =  120 * 1000;
 		unsigned long delay_ms  =   2 * 1000;
 		unsigned long writ_msec =  180 * 1000;
 		unsigned long expire_ms =  1200 * 1000;
@@ -386,7 +398,7 @@ static int parse_read_response(int func_mode, char *resp)
 		task_remove_by_name("read");
 		task_remove_by_name("write");
 		task_add("read", periodic_read, pd, -1, read_msec, 0);
-	//	task_add("read_d_n_t", periodic_read_current_d_n_t, pd, read_msec_t, read_msec_t, 0);
+		//task_add("read_d_n_t", periodic_read_current_d_n_t, pd, read_msec_t, read_msec_t, 0);
 		task_add("write", periodic_write, pd, delay_ms, writ_msec, expire_ms);
 		
 		/* schedule an requested event */
@@ -406,59 +418,59 @@ static int parse_read_response(int func_mode, char *resp)
 	return 0;
 }
 
-static int parse_read_response_current_d_n_t(int func_mode, char *resp)
-{
-	struct device *pd = get_device_ctx();
-	struct dev_hvac *p = &pd->hvac;
-	char *body;
-	
-	body = strstr(resp, "\r\n\r\n");
-	if (NULL == body)
-	return -1;
-	
-	body += 4;	// skip marker
-
-	//AX_PRINTF("content: %s\r\n", body);
-	AX_PRINTF("Current Date and Time For god Sake: ");
-	
-		/* parse XML format parameters */
-		const char span[] = "<>\r\n";		// we expect tokens of "comm_freq" + "24" + "/comm_freq" + "write_freq" + "15" + ...
-		char *v;
-		
-		char *token = strtok(body, span);	// xml header is ok to drop.
-		while (token)
-		{
-			token = strtok(NULL, span);		// skip to next
-			if (!token) break;				// end of parse
-			if (token[0] == '/') continue;	// skip trailing key.
-			
-			if (strcmp(token, "current_date") == 0) {
-				v = strtok(NULL, span);
-				p->current_date = _parse_current_date(v);
-				continue;
-			}
-			if (strcmp(token, "current_time") == 0) {
-				v = strtok(NULL, span);
-				p->current_time = _parse_current_time(v);
-				continue;
-			}
-			
-		}
-		
-		
-/* summarize HVAC operation parameter */
-AX_PRINTF("XML parameters: \r\n"
-
-"\t current_date = %d \r\n"
-"\t current_time = %d \r\n",
-
-p->current_date,
-p->current_time
-
-);
-		
-	return 0;
-}
+//static int parse_read_response_current_d_n_t(int func_mode, char *resp)
+//{
+	//struct device *pd = get_device_ctx();
+	//struct dev_hvac *p = &pd->hvac;
+	//char *body;
+	//
+	//body = strstr(resp, "\r\n\r\n");
+	//if (NULL == body)
+	//return -1;
+	//
+	//body += 4;	// skip marker
+//
+	////AX_PRINTF("content: %s\r\n", body);
+	//AX_PRINTF("Current Date and Time: ");
+	//
+		///* parse XML format parameters */
+		//const char span[] = "<>\r\n";		// we expect tokens of "comm_freq" + "24" + "/comm_freq" + "write_freq" + "15" + ...
+		//char *v;
+		//
+		//char *token = strtok(body, span);	// xml header is ok to drop.
+		//while (token)
+		//{
+			//token = strtok(NULL, span);		// skip to next
+			//if (!token) break;				// end of parse
+			//if (token[0] == '/') continue;	// skip trailing key.
+			//
+			//if (strcmp(token, "current_date") == 0) {
+				//v = strtok(NULL, span);
+				//p->current_date = _parse_current_date(v);
+				//continue;
+			//}
+			//if (strcmp(token, "current_time") == 0) {
+				//v = strtok(NULL, span);
+				//p->current_time = _parse_current_time(v);
+				//continue;
+			//}
+			//
+		//}
+		//
+		//
+///* summarize HVAC operation parameter */
+//AX_PRINTF("XML parameters: \r\n"
+//
+//"\t current_date = %d \r\n"
+//"\t current_time = %d \r\n",
+//
+//p->current_date,
+//p->current_time
+//
+//);
+		//
+	//return 0;
+//}
 
 
 
@@ -486,29 +498,29 @@ static int gnet_cmd_read(struct device *pd)
 	return 0;
 }
 
-static int gnet_cmd_read_current_d_n_t(struct device *pd)
-{
-	char req[GREENNET_HTTP_REQ_MAXLEN];
-
-	/* cmd format:
-		AAF:	/gmeter/aa/automaticairfilter.taf?_function=read&serial=AAG10022001&mac=00409D74E237&comm_freq
-		HVAC:	/gmeter/aa/wifihvac.taf?_function=read&serial=gHWA-8000001&mac=080028000001
-		*/
-	int n = snprintf(req, sizeof(req),
-		"GET %s?%s=%s" "&serial=%s" "&mac=%s"
-		" HTTP/1.1\r\nHost: %s\r\nUser-Agent: HVAC-WINC1500\r\nConnection: Keep-Alive\r\n\r\n",
-		pd->hvac.url_base, pd->hvac.url_func, "read",
-		pd->serial, pd->mac, 
-		pd->hvac.url_host);
-		
-			
-	//ax_http_send_command(pd->http);
-	int err = http_command_request(pd, 0, req, parse_read_response_current_d_n_t);
-	if (err < 0)
-		return err;
-
-	return 0;
-}
+//static int gnet_cmd_read_current_d_n_t(struct device *pd)
+//{
+	//char req[GREENNET_HTTP_REQ_MAXLEN];
+//
+	///* cmd format:
+		//AAF:	/gmeter/aa/automaticairfilter.taf?_function=read&serial=AAG10022001&mac=00409D74E237&comm_freq
+		//HVAC:	/gmeter/aa/wifihvac.taf?_function=read&serial=gHWA-8000001&mac=080028000001
+		//*/
+	//int n = snprintf(req, sizeof(req),
+		//"GET %s?%s=%s" "&serial=%s" "&mac=%s"
+		//" HTTP/1.1\r\nHost: %s\r\nUser-Agent: HVAC-WINC1500\r\nConnection: Keep-Alive\r\n\r\n",
+		//pd->hvac.url_base, pd->hvac.url_func, "read",
+		//pd->serial, pd->mac, 
+		//pd->hvac.url_host);
+		//
+			//
+	////ax_http_send_command(pd->http);
+	//int err = http_command_request(pd, 0, req, parse_read_response_current_d_n_t);
+	//if (err < 0)
+		//return err;
+//
+	//return 0;
+//}
 
 static int gnet_cmd_write(struct device *pd)
 {
@@ -578,18 +590,18 @@ static int periodic_read(struct timer_tcb *p)
 
 	return 0;
 }
-static int periodic_read_current_d_n_t(struct timer_tcb *p)
-{
-	struct device *pd = p->data;
-	
-	AX_PRINTF("> read periodic current time and date\r\n");
-	
-	int err = gnet_cmd_read_current_d_n_t(pd);
-	if (err < 0)
-	return err;
-
-	return 0;
-}
+//static int periodic_read_current_d_n_t(struct timer_tcb *p)
+//{
+	//struct device *pd = p->data;
+	//
+	//AX_PRINTF("> read periodic current time and date\r\n");
+	//
+	//int err = gnet_cmd_read_current_d_n_t(pd);
+	//if (err < 0)
+	//return err;
+//
+	//return 0;
+//}
 
 static int periodic_write(struct timer_tcb *p)
 {
