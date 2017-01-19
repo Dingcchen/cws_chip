@@ -42,7 +42,7 @@ static int _parse_reporting_url(struct dev_hvac *p, const char *url);
 static int periodic_read(struct timer_tcb *p);
 
 static int periodic_write(struct timer_tcb *p);
-static int periodic_write_demand(struct timer_tcb *p);
+//static int periodic_write_demand(struct timer_tcb *p);
 //static int periodic_read_current_d_n_t(struct timer_tcb *p);
 
 /************************************************************************/
@@ -128,8 +128,7 @@ static int parse_write_response(int func_mode, char *resp)
 	return 0;
 }
 
-
-static int parse_write_immediate_response(int func_mode, char *resp)
+int parse_write_immediate_response(int func_mode, char *resp)
 {
 
 	return 0;
@@ -356,24 +355,22 @@ static int parse_read_response(int func_mode, char *resp)
 		task_remove_by_name("read");
 		task_remove_by_name("write");
 		task_add("read", periodic_read, pd, read_msec, read_msec, 0);
-		
-	//	task_add("read_d_n_t", periodic_read_current_d_n_t, pd,read_msec_t, read_msec_t, 0);
 		task_add("write", periodic_write, pd, p->delay, writ_msec, expire_ms);
-	//	task_add("read_d_n_t", periodic_read_current_d_n_t, pd,read_msec_t, read_msec_t, 0);
+	
 		
 		
-		/* schedule an requested event */
-		if (p->demand_resp_code > 0)
-		{
-			int min = (p->demand_resp_code == 1) ? 6 : 12;
-			
-		//	task_add("read_d_n_t", periodic_read_current_d_n_t, pd,read_msec_t, read_msec_t, 0);
-			
-			task_add("w0", periodic_write_demand, pd,   0 * 60000, 0, 0); // event right after
-			task_add("w1", periodic_write_demand, pd, min * 60000, 0, 0); // 6 or 12-min later
-			task_add("w2", periodic_write_demand, pd,  20 * 60000, 0, 0); // 20-min later
-			
-		}
+		///* schedule an requested event */
+		//if (p->demand_resp_code > 0)
+		//{
+			//int min = (p->demand_resp_code == 1) ? 6 : 12;
+			//
+		//
+			//
+			//task_add("w0", periodic_write_demand, pd,   0 * 60000, 0, 0); // event right after
+			//task_add("w1", periodic_write_demand, pd, min * 60000, 0, 0); // 6 or 12-min later
+			//task_add("w2", periodic_write_demand, pd,  20 * 60000, 0, 0); // 20-min later
+			//
+		//}
 		
 		if (p->url_chaged)
 			pd->wifi.valid_domain_status = 0;
@@ -398,80 +395,14 @@ static int parse_read_response(int func_mode, char *resp)
 		task_remove_by_name("read");
 		task_remove_by_name("write");
 		task_add("read", periodic_read, pd, -1, read_msec, 0);
-		//task_add("read_d_n_t", periodic_read_current_d_n_t, pd, read_msec_t, read_msec_t, 0);
 		task_add("write", periodic_write, pd, delay_ms, writ_msec, expire_ms);
 		
-		/* schedule an requested event */
-		if (p->demand_resp_code > 0)
-		{
-			//int min = (p->demand_resp_code == 1) ? 6 : 12;
-			
-			task_add("w0", periodic_write_demand, pd, w0_ms, 0, 0); // event right after
-			task_add("w1", periodic_write_demand, pd, w1_ms, 0, 0); // 6 or 12-min later
-			task_add("w2", periodic_write_demand, pd, w2_ms, 0, 0); // 20-min later
-		}
-
 // 		if (p->url_chaged)
 // 			pd->wifi.valid_domain_status = 0;
 	}
 
 	return 0;
 }
-
-//static int parse_read_response_current_d_n_t(int func_mode, char *resp)
-//{
-	//struct device *pd = get_device_ctx();
-	//struct dev_hvac *p = &pd->hvac;
-	//char *body;
-	//
-	//body = strstr(resp, "\r\n\r\n");
-	//if (NULL == body)
-	//return -1;
-	//
-	//body += 4;	// skip marker
-//
-	////AX_PRINTF("content: %s\r\n", body);
-	//AX_PRINTF("Current Date and Time: ");
-	//
-		///* parse XML format parameters */
-		//const char span[] = "<>\r\n";		// we expect tokens of "comm_freq" + "24" + "/comm_freq" + "write_freq" + "15" + ...
-		//char *v;
-		//
-		//char *token = strtok(body, span);	// xml header is ok to drop.
-		//while (token)
-		//{
-			//token = strtok(NULL, span);		// skip to next
-			//if (!token) break;				// end of parse
-			//if (token[0] == '/') continue;	// skip trailing key.
-			//
-			//if (strcmp(token, "current_date") == 0) {
-				//v = strtok(NULL, span);
-				//p->current_date = _parse_current_date(v);
-				//continue;
-			//}
-			//if (strcmp(token, "current_time") == 0) {
-				//v = strtok(NULL, span);
-				//p->current_time = _parse_current_time(v);
-				//continue;
-			//}
-			//
-		//}
-		//
-		//
-///* summarize HVAC operation parameter */
-//AX_PRINTF("XML parameters: \r\n"
-//
-//"\t current_date = %d \r\n"
-//"\t current_time = %d \r\n",
-//
-//p->current_date,
-//p->current_time
-//
-//);
-		//
-	//return 0;
-//}
-
 
 
 static int gnet_cmd_read(struct device *pd)
@@ -498,29 +429,7 @@ static int gnet_cmd_read(struct device *pd)
 	return 0;
 }
 
-//static int gnet_cmd_read_current_d_n_t(struct device *pd)
-//{
-	//char req[GREENNET_HTTP_REQ_MAXLEN];
-//
-	///* cmd format:
-		//AAF:	/gmeter/aa/automaticairfilter.taf?_function=read&serial=AAG10022001&mac=00409D74E237&comm_freq
-		//HVAC:	/gmeter/aa/wifihvac.taf?_function=read&serial=gHWA-8000001&mac=080028000001
-		//*/
-	//int n = snprintf(req, sizeof(req),
-		//"GET %s?%s=%s" "&serial=%s" "&mac=%s"
-		//" HTTP/1.1\r\nHost: %s\r\nUser-Agent: HVAC-WINC1500\r\nConnection: Keep-Alive\r\n\r\n",
-		//pd->hvac.url_base, pd->hvac.url_func, "read",
-		//pd->serial, pd->mac, 
-		//pd->hvac.url_host);
-		//
-			//
-	////ax_http_send_command(pd->http);
-	//int err = http_command_request(pd, 0, req, parse_read_response_current_d_n_t);
-	//if (err < 0)
-		//return err;
-//
-	//return 0;
-//}
+
 
 static int gnet_cmd_write(struct device *pd)
 {
@@ -546,7 +455,7 @@ static int gnet_cmd_write(struct device *pd)
 	return 0;
 }
 
-static int gnet_cmd_write_immediate(struct device *pd)
+int gnet_cmd_write_immediate(struct device *pd)
 {
 	char req[GREENNET_HTTP_REQ_MAXLEN*2]; // longer req
 	struct dev_hvac *p = &pd->hvac;
@@ -590,18 +499,6 @@ static int periodic_read(struct timer_tcb *p)
 
 	return 0;
 }
-//static int periodic_read_current_d_n_t(struct timer_tcb *p)
-//{
-	//struct device *pd = p->data;
-	//
-	//AX_PRINTF("> read periodic current time and date\r\n");
-	//
-	//int err = gnet_cmd_read_current_d_n_t(pd);
-	//if (err < 0)
-	//return err;
-//
-	//return 0;
-//}
 
 static int periodic_write(struct timer_tcb *p)
 {
@@ -616,7 +513,7 @@ static int periodic_write(struct timer_tcb *p)
 	return 0;
 }
 
-static int periodic_write_demand(struct timer_tcb *p)
+int periodic_write_demand(struct timer_tcb *p)
 {
 	struct device *pd = p->data;
 

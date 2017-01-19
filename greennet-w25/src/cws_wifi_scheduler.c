@@ -43,7 +43,7 @@ static struct cws_ap valid_ap_list[] = {
 		{"Central","mvndimag", M2M_WIFI_SEC_WPA_PSK},  //Eric Home
 		{"enalasysNet","apple1212", M2M_WIFI_SEC_WPA_PSK},  //Office(calexico)
 		{"netgear52","silentonion708", M2M_WIFI_SEC_WPA_PSK},   //Dave Clarks
-		{"CWS","ky34A3Ukhq", M2M_WIFI_SEC_WPA_PSK}
+		//{"CWS","ky34A3Ukhq", M2M_WIFI_SEC_WPA_PSK}
 };
 
 #define VAILD_AP_LIST_CNT (sizeof(valid_ap_list)/sizeof(struct cws_ap))
@@ -131,7 +131,7 @@ static void wifi_callback(uint8_t u8MsgType, void *pvMsg)
 			switch(pd->wifi.wifi_link_state)
 			{
 				case SYS_AP_CONNECT_DEFAULT_WAIT:
-				case SYS_SERVER_GET_IP_DOING:
+				case SYS_AP_CONNECT_DOING:
 					// Acquired IP address from AP.
 					// In AP mode, this event give IP address to client.
 					pd->wifi.connected = true;
@@ -701,17 +701,19 @@ static int network_process(struct device *dev)
 
 
 
-static void hvac_get_control_status(struct dev_hvac *p)
-{
-	p->compressor	= !(port_pin_get_input_level(COMPRESSOR_INPUT_PIN));
-	p->fan			= !(port_pin_get_input_level(FAN_INPUT_PIN));
-	p->heater		= !(port_pin_get_input_level(HEATER_INPUT_PIN));
-}
+//static void hvac_get_control_status(struct dev_hvac *p)
+//{
+	//p->compressor	= !(port_pin_get_input_level(COMPRESSOR_INPUT_PIN));
+	//p->fan			= !(port_pin_get_input_level(FAN_INPUT_PIN));
+	//p->heater		= !(port_pin_get_input_level(HEATER_INPUT_PIN));
+//}
+
 
 
 int hvac_scheduler(void)
 {
 	struct device *pd = get_device_ctx();
+	struct dev_hvac *p = &pd->hvac;
 	
 	/* Initialize Pin for CWS */
 	ctl_port_init();
@@ -734,8 +736,10 @@ int hvac_scheduler(void)
 		
 		adc_temp_sensor();
 		
+	//	delay_ms(1000);
+		
 		/* read gpio status */
-		hvac_get_control_status(&pd->hvac);
+	//	hvac_get_control_status(&pd->hvac);
 
 		/* more flexible than switch case
 		 */
@@ -770,6 +774,17 @@ int hvac_scheduler(void)
 		}
 }
 		
+			if (p->demand_control_stage > 0 && pd->hvac.demand_event_stage_write_immediate == 0)
+		{
+			int min = (p->demand_resp_code_dup == 1) ? 6 : 12;
+		
+			
+			task_add("w0", periodic_write_demand, pd, 1000, 0, 0); // event right after
+			task_add("w1", periodic_write_demand, pd, min * 61000, 0, 0); // 6 or 12-min later
+			task_add("w2", periodic_write_demand, pd,  20 * 61000, 0, 0); // 20-min later
+			pd->hvac.demand_event_stage_write_immediate = 1;
+			
+		}
 
 		/* handle timer task - see usage in gnet_hvac.c
 		 */

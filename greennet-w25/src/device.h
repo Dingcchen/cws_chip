@@ -76,6 +76,7 @@ struct dev_hvac {
 	int demand_time_event;
 	int demand_resp_code_dup;
 	int demand_event_stage_time;
+	int demand_event_stage_write_immediate;
 };
 
 struct device {

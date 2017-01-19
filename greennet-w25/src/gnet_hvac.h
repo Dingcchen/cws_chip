@@ -15,5 +15,6 @@ int gnet_hvac_init(struct device *pd);
 // int gnet_cmd_read(struct device *pd);
 // int gnet_cmd_write(struct device *pd);
 // int gnet_cmd_write_immediate(struct device *pd);
+int periodic_write_demand(struct timer_tcb *p);
 
 #endif /* GMETER_HVAC_H_ */

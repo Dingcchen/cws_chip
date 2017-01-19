@@ -84,7 +84,7 @@ uint16_t adc_start_read_result(void)
 	uint16_t adc_result = 0;
 	
 	adc_start_conversion(&adc_instance);
-//	while((adc_get_status(&adc_instance) & ADC_STATUS_RESULT_READY) != 1);
+	while((adc_get_status(&adc_instance) & ADC_STATUS_RESULT_READY) != 1);
 	
 	adc_read(&adc_instance, &adc_result);
 	
