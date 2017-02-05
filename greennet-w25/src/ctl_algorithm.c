@@ -47,11 +47,11 @@ void ctl_port_init(void) {
 	port_pin_set_config(FAN_OUTPUT_PIN_RESET, &pin_conf);
 	port_pin_set_config(COMPRESSOR_PIN_SET, &pin_conf);
 	port_pin_set_config(COMPRESSOR_PIN_RESET, &pin_conf);
-  
+	
 	
 	
 	set_fan();
-	delay_ms(1000);
+	delay_ms(500);
 	set_comp();
 	
 	
@@ -84,58 +84,72 @@ static int _is_heater_off(void){
 
 void set_fan(void){
 	
+	struct device *pd = get_device_ctx();
+	
 	delay_ms(25);
 	port_pin_set_output_level(FAN_OUTPUT_PIN_SET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(FAN_OUTPUT_PIN_SET,OUTPUT_INACTIVE);
 	delay_ms(50);
 	
 	port_pin_set_output_level(FAN_OUTPUT_PIN_SET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(FAN_OUTPUT_PIN_SET,OUTPUT_INACTIVE);
+	delay_ms(25);
+	
+	pd->hvac.fan = 0;
 }
 
 
 void reset_fan(void){
 	
-    delay_ms(25);
-	port_pin_set_output_level(FAN_OUTPUT_PIN_RESET,OUTPUT_ACTIVE);
+	struct device *pd = get_device_ctx();
+	
 	delay_ms(25);
+	port_pin_set_output_level(FAN_OUTPUT_PIN_RESET,OUTPUT_ACTIVE);
+	delay_ms(50);
 	port_pin_set_output_level(FAN_OUTPUT_PIN_RESET,OUTPUT_INACTIVE);
 	delay_ms(50);
-	
 	port_pin_set_output_level(FAN_OUTPUT_PIN_RESET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(FAN_OUTPUT_PIN_RESET,OUTPUT_INACTIVE);
+	delay_ms(25);
+	pd->hvac.fan = 1;
 	
 }
 
 void set_comp(void){
 	
+	struct device *pd = get_device_ctx();
+	
 	delay_ms(25);
 	port_pin_set_output_level(COMPRESSOR_PIN_SET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(COMPRESSOR_PIN_SET,OUTPUT_INACTIVE);
 	delay_ms(50);
 	
 	port_pin_set_output_level(COMPRESSOR_PIN_SET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(COMPRESSOR_PIN_SET,OUTPUT_INACTIVE);
+	delay_ms(25);
+	pd->hvac.compressor = 0;
 	
 }
 
 void reset_comp(void){
 	
+	struct device *pd = get_device_ctx();
+	
 	delay_ms(25);
 	port_pin_set_output_level(COMPRESSOR_PIN_RESET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(COMPRESSOR_PIN_RESET,OUTPUT_INACTIVE);
 	delay_ms(50);
-	
 	port_pin_set_output_level(COMPRESSOR_PIN_RESET,OUTPUT_ACTIVE);
-	delay_ms(25);
+	delay_ms(50);
 	port_pin_set_output_level(COMPRESSOR_PIN_RESET,OUTPUT_INACTIVE);
-	
+	delay_ms(25);
+	pd->hvac.compressor = 1;
 }
 
 
@@ -173,14 +187,14 @@ static void Fan_Man(void) {
 		} else {
 		reset_fan(); /* GP2=1; */
 
-		}
 	}
-	
+}
+
 static void Comp_man(void)
 {
 	/*****  Compressor is ON or OFF ********/
 	if(is_comp_off)
-    set_comp();
+	set_comp();
 	else
 	reset_comp();
 }
@@ -191,6 +205,8 @@ void control_conditioner(void) {
 	
 	static unsigned long algo_delay = 0, algo_delay1 = 0, algo_delay2 = 0, algo_delay3 = 0, algo_delay4 = 0, algo_delay5 =0;
 	static unsigned int keep_time_extented_bk = 0, main_counter_heat_bk = 0;
+	
+	static unsigned long delay_1 = 0,delay_2 =0, delay_3 = 0, delay_4 =0,delay_5 = 0,delay_6;
 
 	
 	if      (algo_delay)
@@ -206,7 +222,18 @@ void control_conditioner(void) {
 	else if (algo_delay5)
 	goto _ALGO_DELAY5;
 
-
+	if    (delay_1)
+	goto  _DELAY_1;
+	if    (delay_2)
+	goto  _DELAY_2;
+	if    (delay_3)
+	goto  _DELAY_3;
+	if    (delay_4)
+	goto  _DELAY_4;
+	if    (delay_5)
+	goto  _DELAY_5;
+	if    (delay_6)
+	goto  _DELAY_6;
 	
 	/****   FAN ON if switch is ON or (Heat and Cool) are ON    *****/        //Come back to check different scenarios
 
@@ -236,14 +263,27 @@ void control_conditioner(void) {
 		
 		Clean_vars();    // Clean Variables
 		reset_fan();     /*  GP2 = 1;  // Turn Fan ON */
-		delay_ms(500);
+
+
+		#if 1 // austion version
+		delay_1 = gAcc_MS;
+		_DELAY_1:
+
+		if ((gAcc_MS - delay_1) > ( 5 * 100)) {
+			//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+			delay_1 = 0;
+		} else
+		return;
+
+		#endif
+
 		reset_comp(); /*  GP4 = 1;         // Turn Compressor ON */
 
 		if (is_comp_off) {
 			
-#if 1 // austion version
+			#if 1 // austion version
 			algo_delay = gAcc_MS;
-_ALGO_DELAY:
+			_ALGO_DELAY:
 
 			if ((gAcc_MS - algo_delay) > (99 * 20)) {
 				printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
@@ -251,10 +291,21 @@ _ALGO_DELAY:
 			} else
 			return;
 			
-#endif
+			#endif
 			control_stage_comp = 4;      //Avoid going inside of the while loop below
 			set_comp();      /* GP4 = 0;     // Turn Comp OFF */
-			delay_ms(500); 
+
+			#if 1 // austion version
+			delay_2 = gAcc_MS;
+			_DELAY_2:
+
+			if ((gAcc_MS - delay_2) > ( 5 * 100)) {
+				//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+				delay_2= 0;
+			} else
+			return;
+
+			#endif
 			set_fan();     /* GP2 = 0;     // Turn Fan OFF */
 		}
 		
@@ -264,9 +315,9 @@ _ALGO_DELAY:
 		|| (!is_heater_off && !is_comp_off))
 		&& control_stage_comp <= 3) {
 			
-#if 1 // austion version
+			#if 1 // austion version
 			algo_delay1 = gAcc_MS;
-_ALGO_DELAY1:
+			_ALGO_DELAY1:
 
 			if ((gAcc_MS - algo_delay1) > (99 * 10)) {
 				printf("algo 1 lead time = %ld\r\n", gAcc_MS - algo_delay1);
@@ -274,17 +325,27 @@ _ALGO_DELAY1:
 			} else
 			return;
 			
-#endif          
-              
-              if (control_stage_comp == 0 && is_comp_off)
-              {
-				  control_stage_comp = 4;      //Avoid going inside of the while loop below
-			      set_comp();      /* GP4 = 0;     // Turn Comp OFF */
-			      delay_ms(500); 
-			      set_fan();
-				  
-              }
-			   aux_to_control_stage_comp++;                   //Check timings here
+			#endif
+			
+			if (control_stage_comp == 0 && is_comp_off)
+			{
+				control_stage_comp = 4;      //Avoid going inside of the while loop below
+				set_comp();      /* GP4 = 0;    */ // Turn Comp OFF
+				#if 1 // austion version
+				delay_3 = gAcc_MS;
+				_DELAY_3:
+
+				if ((gAcc_MS - delay_3) > ( 5 * 100)) {
+					//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+					delay_3 = 0;
+				} else
+				return;
+
+				#endif
+				set_fan();
+				
+			}
+			aux_to_control_stage_comp++;                   //Check timings here
 			
 			if (aux_to_control_stage_comp > 9)
 			{
@@ -315,7 +376,10 @@ _ALGO_DELAY1:
 			if(tick_comp_on_and_off == 1 && aux_to_control_stage_comp == 0)            	//  increase b when c is 1
 			{
 				control_stage_comp++;
-				Fan_Man();
+				if (!control_stage_comp == 3)
+				{
+					Fan_Man();
+				}
 			}
 			
 			/****Store t1 = c when the compressor is ON for the first time*****/
@@ -323,6 +387,8 @@ _ALGO_DELAY1:
 			if (control_stage_comp == 1 && !is_comp_off) {
 				t1_comp_ontime = tick_comp_on_and_off;
 				Fan_Man();        // Check FAN input  GP3
+				delay_ms(500);
+				Comp_man();
 				
 			}
 			
@@ -334,7 +400,17 @@ _ALGO_DELAY1:
 				main_counter_for_comp_off = 0;
 				
 				set_comp();
-				delay_ms(500);
+				#if 1 // austion version
+				delay_4 = gAcc_MS;
+				_DELAY_4:
+
+				if ((gAcc_MS - delay_4) > ( 5 * 100)) {
+					//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+					delay_4 = 0;
+				} else
+				return;
+
+				#endif
 				Fan_Man();       // Check FAN input  GP3
 				
 				
@@ -359,52 +435,74 @@ _ALGO_DELAY1:
 				main_counter_comp = 0; //Reset the counter
 				main_counter_for_comp_off = 0;
 				set_comp();
-				delay_ms(500);
-			
+				#if 1 // austion version
+				delay_5 = gAcc_MS;
+				_DELAY_5:
+
+				if ((gAcc_MS - delay_5) > ( 5 * 100)) {
+					//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+					delay_5 = 0;
+				} else
+				return;
+
+				#endif
+
 				Fan_Man();             //Check Fan input GP3
-				}
+			}
 
 			if (control_stage_comp == 2 && !is_comp_off) {  //a == 0)
 				tick_comp_on_and_off = 0;
 				
 				reset_fan(); /* GP2=1; */
-				delay_ms(500);
+
+				#if 1 // austion version
+				delay_6 = gAcc_MS;
+				_DELAY_6:
+
+				if ((gAcc_MS - delay_6) > ( 5 * 100)) {
+					//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+					delay_6 = 0;
+				} else
+				return;
+
+				#endif
+				
 				reset_comp();  /*    GP4=1; */
 			}
 			
 			/** Turn compressor OFF for 3 minutes every 30 Minutes ***/
-		//if (main_counter_for_comp_off > 75 && !is_comp_off) {
-				//
-				//reset_comp(); /*GP4 = 0;     // Compressor OFF */  //testing
-		//
-//
-//#if 1 // austion version
-			   //algo_delay2 = gAcc_MS;
+			//if (main_counter_for_comp_off > 75 && !is_comp_off) {
 			//
-//_ALGO_DELAY2:
-				///* 3-minutes delay */
-				//
-				//if ((gAcc_MS - algo_delay2) > (3 * 60 * 1000)) {
-					//printf("algo 2 lead time = %ld\r\n", gAcc_MS - algo_delay2);
-					//algo_delay2 = 0;
-				//} else
-				//return;
-				//
-//#endif
+			//reset_comp(); /*GP4 = 0;     // Compressor OFF */  //testing
+			//
+			//
+			//#if 1 // austion version
+			//algo_delay2 = gAcc_MS;
+			//
+			//_ALGO_DELAY2:
+			///* 3-minutes delay */
+			//
+			//if ((gAcc_MS - algo_delay2) > (3 * 60 * 1000)) {
+			//printf("algo 2 lead time = %ld\r\n", gAcc_MS - algo_delay2);
+			//algo_delay2 = 0;
+			//} else
+			//return;
+			//
+			//#endif
 			
 			//
 			//if (!is_comp_off) {
-					 //
-					//reset_fan(); /* GP2=1; // Fan ON */
-					//delay_ms(500);
-					//reset_comp(); /*    GP4=1; // Compressor ON */
-					//
-					//} else {
-					//set_comp(); /*    GP4=0; // Compressor OFF */
-					//delay_ms(500);
-					//Fan_Man();
-				//}
-				//control_stage_comp = 4;
+			//
+			//reset_fan(); /* GP2=1; // Fan ON */
+			
+			//reset_comp(); /*    GP4=1; // Compressor ON */
+			//
+			//} else {
+			//set_comp(); /*    GP4=0; // Compressor OFF */
+			
+			//Fan_Man();
+			//}
+			//control_stage_comp = 4;
 			//}
 			
 			
@@ -415,7 +513,7 @@ _ALGO_DELAY1:
 				reset_fan(); /* GP2=1; // Fan ON */
 				keep_time_extented = t1_comp_ontime + t2_comp_offtime + tick_comp_on_and_off; //xx=t1*0.17+ t2*0.07 + c*.0.17
 
-#if 1 // austion version
+				#if 1 // austion version
 				keep_time_extented_bk = keep_time_extented;
 				algo_delay3 = gAcc_MS;
 				_ALGO_DELAY3:
@@ -426,7 +524,7 @@ _ALGO_DELAY1:
 				} else
 				return;
 				
-#endif
+				#endif
 				
 				t1_comp_ontime = tick_comp_on_and_off;
 				control_stage_comp = 1;
@@ -456,7 +554,7 @@ _ALGO_DELAY1:
 		keep_time_extented=0;
 		t2_comp_offtime=0;
 
-#if 1 // austion version
+		#if 1 // austion version
 		algo_delay4 = gAcc_MS;
 		_ALGO_DELAY4:
 
@@ -466,7 +564,7 @@ _ALGO_DELAY1:
 		} else
 		return;
 
-#endif
+		#endif
 		
 		aux_counter_heat++; //Increment Auxilar heater counter
 		
@@ -515,61 +613,57 @@ _ALGO_DELAY1:
 
 
 int control_conditioner1(void)
-	{
+{
 	
 	struct device *pd = get_device_ctx();
 	unsigned long tick = get_time_ms();
 	static int event_stage = 0;
 	static unsigned long event_time_1;
-	//static unsigned long demand_event_time_1;
-	//static unsigned long demand_current_time_1; 
-	//unsigned long result;
+	static unsigned long delay_1 = 0;
+	unsigned long ran = tick % 30; 
 	
-	unsigned int ran = tick % 30;  //random number for read frequency
+	if (!is_heater_off)
+	{
+		pd->hvac.demand_resp_code = 0;
+		
+	}
 	
-	
-   if (!is_heater_off)
+	else
+	{
+
+		if (delay_1)
+		goto _DELAY_1;
+		
+		/* event start */
+		if(event_stage == 0)
 		{
-			pd->hvac.demand_resp_code = 0;
+			pd->hvac.demand_control_stage = 1;
+			event_stage = 1;
+			event_time_1 = tick;
+			
+
+#if 1 // austion version
+delay_1 = tick;
+_DELAY_1:
+
+			if ((tick - delay_1) > ( pd->hvac.delay + ran)) {
+				//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+				delay_1 = 0;
+			} else
+			return;
+
+			#endif
+			set_comp();
 			
 		}
-	 
-	 else
-	 {
-		 //if(pd->hvac.demand_event_stage == 0)
-		 //{
-	     	//pd->hvac.demand_event_stage = 1;
-		    //demand_current_time_1 = pd->hvac.current_time;
-		    //demand_event_time_1 = tick;
-		 //}
-    //
-	//result = pd->hvac.demand_resp_time - demand_current_time_1;
-	//
-	//if (pd->hvac.demand_event_stage == 1 && (result < tick  - demand_event_time_1))
-	////if((pd->hvac.current_time - 30000) <= pd->hvac.demand_resp_time && pd->hvac.demand_resp_time <= (pd->hvac.current_time + 30000))
-	//
-	//{
 		
-	/* event start */
-	if(event_stage == 0)
-	 {
-		pd->hvac.demand_control_stage = 1;
-		event_stage = 1;
-		event_time_1 = tick;
+		/* check 6-min elapsed */
 		
-		delay_ms(pd->hvac.delay + ran);
-		set_comp();
+		if (event_stage == 1 && (tick - event_time_1 > 6 * 60 * 1000))
 		
-	  }
-	  
-//}
-	/* check 6-min elapsed */
-	
-	if (event_stage == 1 && (tick - event_time_1 > 6 * 60 * 1000))
-	
 		{
 			
-		   
+			
 			event_stage = 0;
 			
 			
@@ -579,18 +673,16 @@ int control_conditioner1(void)
 			pd->hvac.demand_control_stage =0;
 			pd->hvac.demand_date_event = 0;
 			pd->hvac.demand_time_event = 0;
+			pd->hvac.demand_event_stage_write_immediate = 0;
 			
 			//Comp_man();
-			
-			
-			delay_ms(pd->hvac.delay + ran);
 			Clean_vars_after_greennet();
 			control_stage_comp = 4;      //Avoid going into the loop
 			
 		}
-	
+		
 
-}
+	}
 	return 0;
 }
 
@@ -604,11 +696,8 @@ int control_conditioner2(void)
 	unsigned long tick = get_time_ms();
 	static int event_stage = 0;
 	static unsigned long event_time_2;
-	//static unsigned long demand_event_time_2;
-	//static unsigned long demand_current_time_2;
-	//unsigned long result;
-	
-	unsigned int ran = tick % 30;  //random number for read frequency
+	static unsigned long delay_2 = 0;
+	unsigned long ran = tick % 30;  //random number for read frequency
 	
 	
 	if (!is_heater_off)
@@ -618,56 +707,56 @@ int control_conditioner2(void)
 	}
 	else
 	{
-		//if (pd->hvac.demand_event_stage == 0)
-		//{
-			//pd->hvac.demand_event_stage = 2;
-			//demand_current_time_2 = pd->hvac.current_time;
-			//demand_event_time_2 = tick;
-		//}
-		//result = pd->hvac.demand_resp_time - demand_current_time_2;
 		
-		//if((pd->hvac.current_time - 30000) <= pd->hvac.demand_resp_time && pd->hvac.demand_resp_time <= (pd->hvac.current_time + 30000))
-		//{
-			//
-			/* event start */
-			if(event_stage == 0)
-			{
-				pd->hvac.demand_control_stage = 2;
-				event_stage = 2;
-				event_time_2 = tick;
-				
-				delay_ms(pd->hvac.delay + ran);
-				set_comp();
-				
-			}
-	//	}
+if (delay_2)
+	
+goto _DELAY_2;
 
-			/* check 12-min elapsed */
-			
-			if (event_stage == 2 && (tick - event_time_2 > 12 * 60 * 1000))
-			
-			{
-				
-				event_stage = 0;
-			
-			
-			pd->hvac.demand_resp_code = 0;
-			pd->hvac.demand_event_stage_read = 0;
-			pd->hvac.demand_resp_code_dup = 0;
-			pd->hvac.demand_control_stage =0;
-			pd->hvac.demand_date_event = 0;
-			pd->hvac.demand_time_event = 0;
-			
-			//Comp_man();
-			
-			
-			delay_ms(pd->hvac.delay + ran);
-			Clean_vars_after_greennet();
-			control_stage_comp = 4;      //Avoid going into the loop
-				
-			}
-			
+	/* event start */
+	if(event_stage == 0)
+	{
+		pd->hvac.demand_control_stage = 2;
+		event_stage = 2;
+		event_time_2 = tick;
+
+		#if 1 // austion version
+		delay_2 = tick;
+		_DELAY_2:
+
+		if ((tick - delay_2) > ( pd->hvac.delay + ran)) {
+			//printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+			delay_2 = 0;
+		} else
+		return;
+
+		#endif
+		set_comp();
 		
+	}
+
+
+	/* check 12-min elapsed */
+	
+	if (event_stage == 2 && (tick - event_time_2 > 12 * 60 * 1000))
+	
+	{
+		
+		event_stage = 0;
+		
+		
+		pd->hvac.demand_resp_code = 0;
+		pd->hvac.demand_event_stage_read = 0;
+		pd->hvac.demand_resp_code_dup = 0;
+		pd->hvac.demand_control_stage =0;
+		pd->hvac.demand_date_event = 0;
+		pd->hvac.demand_time_event = 0;
+		
+		Clean_vars_after_greennet();
+		control_stage_comp = 4;      //Avoid going into the loop
+		
+	}
+	
+	
 	}
 	return 0;
 }
@@ -675,84 +764,96 @@ int control_conditioner2(void)
 int control_conditioner3()
 {
 	
-  struct device *pd = get_device_ctx();
-  unsigned long tick = get_time_ms();
-  static int event_stage = 0;
-  static unsigned long event_time_3;
-  //static unsigned long demand_event_time_3;
-  //static unsigned long demand_current_time_3;
-  //unsigned long result;
-  
-  unsigned int ran = tick % 30;  //random number for read frequency
-  
-  
-  if (!is_heater_off)
-  {
-	  pd->hvac.demand_resp_code = 0;
-	  
-  }
-  else
-  {
-	  //if (pd->hvac.demand_event_stage == 0)
-	  //{
-		//  pd->hvac.demand_event_stage = 3;
-		  //demand_current_time_3 = pd->hvac.current_time;
-		  //demand_event_time_3 = tick;
-	  //}
-	//  result = pd->hvac.demand_resp_time - demand_current_time_3;
-	  
-	// if((pd->hvac.current_time - 30000) <= pd->hvac.demand_resp_time && pd->hvac.demand_resp_time <= (pd->hvac.current_time + 30000))
-	//  {
-		  
-		  /* event start */
-		  if(event_stage == 0)
-		  {
-			  pd->hvac.demand_control_stage = 3;
-			  event_stage = 3;
-			  event_time_3 = tick;
-			  
-			  delay_ms(pd->hvac.delay + ran);
-			  set_comp();
-			  delay_ms(500);
-			  set_fan();
-			  
-		  }
-	 // }
+	struct device *pd = get_device_ctx();
+	unsigned long tick = get_time_ms();
+	static int event_stage = 0;
+	static unsigned long event_time_3;
+	static unsigned long delay_3 = 0;
+	static unsigned long delay_4 = 0;
+	unsigned long ran = tick % 30;  //random number for read frequency
+	
+	
+	////if (!is_heater_off)
+	////{
+	////pd->hvac.demand_resp_code = 0;
+	////
+	////}
+	//else
+	//{
+	//if (delay_3)
+	//goto _DELAY_3;
+	//if (delay_4);
+	//goto _DELAY_4;
+	
+	
+	/* event start */
+	if(event_stage == 0)
+	{
+		pd->hvac.demand_control_stage = 3;
+		event_stage = 3;
+		event_time_3 = tick;
+		
+		//#if 1 // austion version
+		//delay_3 = tick;
+		//_DELAY_3:
+//
+		//if ((tick - delay_3) > ( pd->hvac.delay + ran)) {
+			////printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+			//delay_3 = 0;
+		//} else
+		//return;
+//
+		//#endif
+		set_comp();
 
-		  /* check 12-min elapsed */
-		  
-		  if (event_stage == 3 && (tick - event_time_3 > 12 * 60 * 1000))
-		  
-		  {
-			 event_stage = 0;
-			
-			
-			pd->hvac.demand_resp_code = 0;
-			pd->hvac.demand_event_stage_read = 0;
-			pd->hvac.demand_resp_code_dup = 0;
-			pd->hvac.demand_control_stage =0;
-			pd->hvac.demand_date_event = 0;
-			pd->hvac.demand_time_event = 0;
-			
-			//Comp_man();
-			
-			
-			delay_ms(pd->hvac.delay + ran);
-			Clean_vars_after_greennet();
-			control_stage_comp = 4;      //Avoid going into the loop
-			  
-		  }
-		  
-	  
-  }
-  return 0;
-  }
+		//#if 1 // austion version
+		//delay_4 = tick;
+		//_DELAY_4:
+//
+		//if ((tick - delay_4) > ( pd->hvac.delay + ran)) {
+			////printf("algo lead time = %ld\r\n", gAcc_MS - algo_delay);
+			//delay_4 = 0;
+		//} else
+		//return;
+//
+		//#endif
+		delay_ms(500);
+
+		set_fan();
+		
+	}
+	// }
+
+	/* check 12-min elapsed */
+	
+	if (event_stage == 3 && (tick - event_time_3 > 12 * 60 * 1000))
+	
+	{
+		event_stage = 0;
+		
+		
+		pd->hvac.demand_resp_code = 0;
+		pd->hvac.demand_event_stage_read = 0;
+		pd->hvac.demand_resp_code_dup = 0;
+		pd->hvac.demand_control_stage =0;
+		pd->hvac.demand_date_event = 0;
+		pd->hvac.demand_time_event = 0;
+		
+		Clean_vars_after_greennet();
+		control_stage_comp = 4;      //Avoid going into the loop
+		
+	}
+	
+	
+	//}
+	return 0;
+}
 
 int check_time_for_event()
 {
 	struct device *pd = get_device_ctx();
 	static unsigned long event_time_demand;
-    unsigned long tick = get_time_ms();
+	unsigned long tick = get_time_ms();
 	static unsigned long result;
 	
 	if (pd->hvac.demand_event_stage_time == 0 && pd->hvac.demand_time_event == 0)
