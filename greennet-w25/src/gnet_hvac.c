@@ -42,8 +42,6 @@ static int _parse_reporting_url(struct dev_hvac *p, const char *url);
 static int periodic_read(struct timer_tcb *p);
 
 static int periodic_write(struct timer_tcb *p);
-//static int periodic_write_demand(struct timer_tcb *p);
-//static int periodic_read_current_d_n_t(struct timer_tcb *p);
 
 /************************************************************************/
 /* implementation                                                       */
@@ -357,20 +355,6 @@ static int parse_read_response(int func_mode, char *resp)
 		task_add("read", periodic_read, pd, read_msec, read_msec, 0);
 		task_add("write", periodic_write, pd, p->delay, writ_msec, expire_ms);
 	
-		
-		
-		///* schedule an requested event */
-		//if (p->demand_resp_code > 0)
-		//{
-			//int min = (p->demand_resp_code == 1) ? 6 : 12;
-			//
-		//
-			//
-			//task_add("w0", periodic_write_demand, pd,   0 * 60000, 0, 0); // event right after
-			//task_add("w1", periodic_write_demand, pd, min * 60000, 0, 0); // 6 or 12-min later
-			//task_add("w2", periodic_write_demand, pd,  20 * 60000, 0, 0); // 20-min later
-			//
-		//}
 		
 		if (p->url_chaged)
 			pd->wifi.valid_domain_status = 0;

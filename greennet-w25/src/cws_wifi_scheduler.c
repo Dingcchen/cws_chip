@@ -131,7 +131,7 @@ static void wifi_callback(uint8_t u8MsgType, void *pvMsg)
 			switch(pd->wifi.wifi_link_state)
 			{
 				case SYS_AP_CONNECT_DEFAULT_WAIT:
-				case SYS_AP_CONNECT_DOING:
+				case  SYS_AP_CONNECT_DOING:
 					// Acquired IP address from AP.
 					// In AP mode, this event give IP address to client.
 					pd->wifi.connected = true;
@@ -562,7 +562,7 @@ static int hvac_cloud_link_handler(struct device *dev)
 					printf("main: failed to connect socket error!\r\n");
 					close(dev->http_sock);
 					dev->http_sock = -1;
-					next_state = SYS_SERVER_CONNECT_BEGIN;
+				
 				} else {
 					previous_ms = get_time_ms();
 					wait_ms = DEMAND_TIME_FOR_SOCKET_CONNECT;
@@ -584,7 +584,7 @@ static int hvac_cloud_link_handler(struct device *dev)
 				printf("Debug : Socket Connect Fail # lead time = %ld\r\n", get_time_ms() - previous_ms);
 				close(dev->http_sock);
 				dev->http_sock = -1;
-				next_state = SYS_SERVER_CONNECT_BEGIN;
+			  
 			}
 
 			break;
@@ -635,8 +635,16 @@ static int hvac_cloud_link_handler(struct device *dev)
 			} else { /* timeout */
 			/*
 				To Do
-			*/
-				next_state = SYS_SERVER_COMMAND_SENDING;
+			*/         //CWS modified 
+						close(dev->http_sock);
+						dev->http_sock = -1;
+						dev->wifi.read_sock_connected = 0;
+
+						if (dev->http_request != NULL) {
+							free(dev->http_request);
+							dev->http_request = NULL;
+						}
+						next_state = SYS_SERVER_CONNECT_BEGIN;
 			}
 
 			break;
@@ -665,7 +673,7 @@ static int hvac_cloud_link_handler(struct device *dev)
 		case SYS_SERVER_COMMAND_IDLE:
 			/* check if AP connection is maintained */
 			/* check if socket is valid */
-			/* cneck if there is a updated news. if is, change current state */
+			/* check if there is a updated news. if is, change current state */
 
 			if ( dev->http_request != NULL) {
 				next_state = SYS_SERVER_CONNECT_BEGIN;
@@ -735,8 +743,6 @@ int hvac_scheduler(void)
 		/* temperature Sensor */
 		
 		adc_temp_sensor();
-		
-	//	delay_ms(1000);
 		
 		/* read gpio status */
 	//	hvac_get_control_status(&pd->hvac);
